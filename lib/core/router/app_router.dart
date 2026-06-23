@@ -11,6 +11,7 @@ import 'package:pulso/features/profile/presentation/profile_page.dart';
 import 'package:pulso/features/profile/presentation/user_profile_page.dart';
 import 'package:pulso/features/studygram/comment_page.dart';
 import 'package:pulso/features/studygram/search_page.dart';
+import 'package:pulso/features/studygram/study_user_profile_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
@@ -60,6 +61,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['postId']!;
           return CommentPage(postId: id);
+        },
+      ),
+      GoRoute(
+        path: '/comments/:postId/replies/:commentId',
+        builder: (context, state) {
+          final postId = state.pathParameters['postId']!;
+          final commentId = state.pathParameters['commentId']!;
+          return CommentPage(
+            postId: postId,
+            replyToCommentId: commentId,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/study-users/:userId',
+        builder: (context, state) {
+          final id = state.pathParameters['userId']!;
+          return StudyUserProfilePage(userId: id);
         },
       ),
       GoRoute(

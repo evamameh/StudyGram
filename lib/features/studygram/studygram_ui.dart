@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,8 +8,9 @@ class StudygramColors {
   static const darkPink = Color(0xFFC2185B);
   static const softPink = Color(0xFFFFF1F5);
   static const lightGray = Color(0xFFF5F7FA);
-  static const darkText = Color(0xFF2D2D2D);
-  static const secondaryText = Color(0xFF777777);
+  static const darkText = Color(0xFF1F2937);
+  static const secondaryText = Color(0xFF4B5563);
+  static const placeholderText = Color(0xFF6B7280);
 }
 
 BoxDecoration softCardDecoration({Color color = Colors.white}) {
@@ -16,7 +19,7 @@ BoxDecoration softCardDecoration({Color color = Colors.white}) {
     borderRadius: BorderRadius.circular(30),
     boxShadow: [
       BoxShadow(
-        color: StudygramColors.primary.withOpacity(0.10),
+        color: StudygramColors.primary.withValues(alpha: 0.10),
         blurRadius: 24,
         offset: const Offset(0, 12),
       ),
@@ -53,7 +56,7 @@ class StudygramLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.32),
         boxShadow: [
           BoxShadow(
-            color: StudygramColors.primary.withOpacity(0.28),
+            color: StudygramColors.primary.withValues(alpha: 0.28),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -196,6 +199,82 @@ class StudyThumbnail extends StatelessWidget {
   }
 }
 
+class StudyMaterialPreview extends StatelessWidget {
+  const StudyMaterialPreview({
+    super.key,
+    required this.icon,
+    this.materialName,
+    this.materialBytes,
+    this.materialType,
+    this.width,
+    this.height,
+  });
+
+  final IconData icon;
+  final String? materialName;
+  final List<int>? materialBytes;
+  final String? materialType;
+  final double? width;
+  final double? height;
+
+  bool get _isImage =>
+      materialBytes != null && (materialType?.startsWith('image/') ?? false);
+
+  bool get _isPdf => materialType == 'application/pdf';
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Image.memory(
+          Uint8List.fromList(materialBytes!),
+          width: width ?? double.infinity,
+          height: height,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return Container(
+      width: width ?? double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFD7E4), Color(0xFFFFF1F5)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _isPdf ? Icons.picture_as_pdf_rounded : icon,
+            color: StudygramColors.primary,
+            size: 38,
+          ),
+          if (materialName != null && materialName!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              materialName!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: StudygramColors.darkText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class SubjectPill extends StatelessWidget {
   const SubjectPill({
     super.key,
@@ -217,8 +296,8 @@ class SubjectPill extends StatelessWidget {
       selectedColor: StudygramColors.primary,
       backgroundColor: Colors.white,
       labelStyle: TextStyle(
-        color: selected ? Colors.white : StudygramColors.secondaryText,
-        fontWeight: FontWeight.w700,
+        color: selected ? Colors.white : Colors.black,
+        fontWeight: FontWeight.w800,
       ),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),

@@ -36,7 +36,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty) {
+    if (firstName.isEmpty ||
+        lastName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty) {
       _showError('All fields are required.');
       return;
     }
@@ -59,12 +62,17 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (!mounted) return;
 
       await _showAlert(
-        title: response.session == null ? 'Check your email' : 'Account created',
+        title:
+            response.session == null ? 'Check your email' : 'Account created',
         message: response.session == null
             ? 'We sent a confirmation link to $email. After verifying, log in to continue.'
             : 'Your StudyGram account is ready. Please log in to continue.',
       );
       if (!mounted) return;
+      if (response.session != null) {
+        await ref.read(authServiceProvider).signOut();
+        if (!mounted) return;
+      }
       context.go('/login');
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -102,7 +110,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -130,6 +139,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: StudygramColors.secondaryText,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
               const SizedBox(height: 24),
@@ -141,28 +151,67 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   children: [
                     TextField(
                       controller: _firstNameCtrl,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'First Name',
                         prefixIcon: Icon(Icons.person_outline_rounded),
+                        labelStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        hintStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        prefixIconColor: Colors.black,
                       ),
                       textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 14),
                     TextField(
                       controller: _lastNameCtrl,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Last Name',
                         prefixIcon: Icon(Icons.badge_outlined),
+                        labelStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        hintStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        prefixIconColor: Colors.black,
                       ),
                       textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 14),
                     TextField(
                       controller: _emailCtrl,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_outlined),
                         errorText: _emailError,
+                        labelStyle: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        hintStyle: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        prefixIconColor: Colors.black,
                       ),
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
@@ -170,9 +219,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 14),
                     TextField(
                       controller: _passwordCtrl,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Password',
                         prefixIcon: Icon(Icons.lock_outline_rounded),
+                        labelStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        hintStyle: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        prefixIconColor: Colors.black,
                       ),
                       obscureText: true,
                       autofillHints: const [AutofillHints.newPassword],

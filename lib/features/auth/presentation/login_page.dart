@@ -65,7 +65,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -85,17 +86,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 18),
                     Text(
                       'StudyGram',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: StudygramColors.darkText,
-                            fontWeight: FontWeight.w900,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: StudygramColors.darkText,
+                                fontWeight: FontWeight.w900,
+                              ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Learn \u2022 Share \u2022 Achieve',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: StudygramColors.secondaryText,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                     const SizedBox(height: 34),
@@ -107,10 +109,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         children: [
                           TextField(
                             controller: _emailCtrl,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Email',
                               prefixIcon: const Icon(Icons.email_outlined),
                               errorText: _emailError,
+                              labelStyle: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              hintStyle: const TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              prefixIconColor: Colors.black,
                             ),
                             keyboardType: TextInputType.emailAddress,
                             autofillHints: const [AutofillHints.email],
@@ -118,9 +133,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SizedBox(height: 16),
                           TextField(
                             controller: _passwordCtrl,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
+                            ),
                             decoration: const InputDecoration(
                               labelText: 'Password',
                               prefixIcon: Icon(Icons.lock_outline_rounded),
+                              labelStyle: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              hintStyle: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              prefixIconColor: Colors.black,
                             ),
                             obscureText: true,
                             autofillHints: const [AutofillHints.password],
@@ -139,7 +167,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 ? const SizedBox(
                                     height: 22,
                                     width: 22,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
                                   )
                                 : const Text('Login'),
                           ),

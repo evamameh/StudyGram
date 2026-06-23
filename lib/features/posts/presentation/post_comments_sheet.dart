@@ -106,7 +106,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
   void initState() {
     super.initState();
     _newComment.addListener(_clearErrorOnType);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _subscribeCommentsRealtime());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _subscribeCommentsRealtime());
   }
 
   void _subscribeCommentsRealtime() {
@@ -172,7 +173,7 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
         raw.contains('violates foreign key') ||
         raw.contains('profiles')) {
       return 'Your account needs a profile before commenting. '
-          'Open Profile, set your username, and tap Save profile — then try again.';
+          'Open Profile, set your username, and tap Save profile, then try again.';
     }
     if (raw.contains('row-level security') ||
         raw.contains('rls') ||
@@ -182,8 +183,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
           'In Supabase, confirm the `comments` table exists and the `comments_insert` policy allows authenticated users to insert their own rows.';
     }
     if (raw.contains('parent_id') || raw.contains('column')) {
-      return 'Run `supabase/schema_day9_comment_replies.sql` in the Supabase SQL editor '
-          'to add the `parent_id` column for replies.';
+      return 'Run `supabase/schema_current_app_complete.sql` in the Supabase SQL editor '
+          'to make sure comment replies are ready.';
     }
     return e.toString();
   }
@@ -338,7 +339,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                 child: Text(
                   'Comments',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -351,8 +353,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                       padding: const EdgeInsets.all(16),
                       child: Text(
                         '${e.toString()}\n\n'
-                        'If this mentions RLS or permission, run `schema_day1.sql` '
-                        '(or at least the `comments` table + policies) in Supabase.',
+                        'If this mentions RLS or permission, run '
+                        '`supabase/schema_current_app_complete.sql` in Supabase.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -365,6 +367,7 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       );
@@ -396,16 +399,17 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                               CommentAuthorAvatar(
                                 comment: c,
                                 size: 40,
-                                onTap: () =>
-                                    context.push('/users/${c.userId}'),
+                                onTap: () => context.push('/users/${c.userId}'),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           child: Wrap(
@@ -415,16 +419,20 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                                             children: [
                                               Text(
                                                 c.username,
-                                                style: theme.textTheme.titleSmall
+                                                style: theme
+                                                    .textTheme.titleSmall
                                                     ?.copyWith(
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                               Text(
                                                 _formatCommentTime(c.createdAt),
-                                                style: theme.textTheme.labelMedium
+                                                style: theme
+                                                    .textTheme.labelMedium
                                                     ?.copyWith(
-                                                  color: scheme.onSurfaceVariant,
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ],
@@ -436,8 +444,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                                               horizontal: 6,
                                             ),
                                             minimumSize: Size.zero,
-                                            tapTargetSize:
-                                                MaterialTapTargetSize.shrinkWrap,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
                                           ),
                                           onPressed: () {
                                             setState(() {
@@ -471,7 +479,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                                           ),
                                         if (!mine && canModerateComments)
                                           IconButton(
-                                            icon: const Icon(Icons.delete_outline,
+                                            icon: const Icon(
+                                                Icons.delete_outline,
                                                 size: 20),
                                             tooltip: 'Delete comment',
                                             onPressed: () => _deleteComment(c),
@@ -482,33 +491,38 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                                       const SizedBox(height: 4),
                                       Text(
                                         'Replying to @$replyToUser',
-                                        style: theme.textTheme.labelMedium?.copyWith(
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(
                                           color: scheme.primary,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                     ],
                                     const SizedBox(height: 4),
                                     Text(
                                       c.body.trim().isEmpty ? '—' : c.body,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         color: c.body.trim().isEmpty
                                             ? scheme.onSurfaceVariant
                                             : null,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         IconButton(
-                                          onPressed: () => _toggleCommentLike(c),
+                                          onPressed: () =>
+                                              _toggleCommentLike(c),
                                           icon: Icon(
                                             c.likedByMe
                                                 ? Icons.favorite
                                                 : Icons.favorite_border,
                                             size: 20,
                                           ),
-                                          tooltip: c.likedByMe ? 'Unlike' : 'Like',
+                                          tooltip:
+                                              c.likedByMe ? 'Unlike' : 'Like',
                                           style: IconButton.styleFrom(
                                             foregroundColor: c.likedByMe
                                                 ? scheme.error
@@ -519,8 +533,10 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                                         ),
                                         Text(
                                           '${c.likeCount}',
-                                          style: theme.textTheme.labelMedium?.copyWith(
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
                                             color: scheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ],
@@ -543,7 +559,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                     color: scheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
                       child: Row(
                         children: [
                           Expanded(
@@ -551,6 +568,7 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                               'Replying to ${_replyingTo!.username}',
                               style: theme.textTheme.labelLarge?.copyWith(
                                 color: scheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -574,7 +592,10 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                       padding: const EdgeInsets.all(10),
                       child: Text(
                         _actionError!,
-                        style: TextStyle(color: scheme.onErrorContainer),
+                        style: TextStyle(
+                          color: scheme.onErrorContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -614,7 +635,8 @@ class _PostCommentsSheetState extends ConsumerState<PostCommentsSheet> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text('Post'),
                       ),

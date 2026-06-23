@@ -56,8 +56,8 @@ class _PlaceholderCredentialsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar:
-            AppBar(title: const Text('StudyGram - replace Supabase placeholders')),
+        appBar: AppBar(
+            title: const Text('StudyGram - replace Supabase placeholders')),
         body: const SafeArea(
           child: Padding(
             padding: EdgeInsets.all(20),

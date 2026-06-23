@@ -1,10 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pulso/core/providers/supabase_provider.dart';
 import 'package:pulso/features/auth/providers/auth_providers.dart';
 import 'package:pulso/features/studygram/studygram_data.dart';
 import 'package:pulso/features/studygram/studygram_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -16,13 +20,219 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _tab = 0;
 
+  Future<void> _changeProfilePicture(
+      String currentName, String currentBio) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file?.bytes == null || file!.bytes!.isEmpty) return;
+
+    final avatarBytes = file.bytes!;
+    ref.read(studygramStoreProvider).updateCurrentUser(
+          name: currentName,
+          bio: currentBio,
+          avatarBytes: avatarBytes,
+        );
+    try {
+      await _trySyncProfileToSupabase(currentName, currentBio, avatarBytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile picture updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Picture updated on this device. Supabase sync failed: $e',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editProfile(String currentName, String currentBio) async {
+    final nameCtrl = TextEditingController(text: currentName);
+    final bioCtrl = TextEditingController(text: currentBio);
+    List<int>? avatarBytes =
+        ref.read(studygramStoreProvider).currentUser.avatarBytes;
+
+    try {
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickAvatar() async {
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.image,
+                withData: true,
+              );
+              final file = result?.files.single;
+              if (file?.bytes == null || file!.bytes!.isEmpty) return;
+              setDialogState(() => avatarBytes = file.bytes);
+            }
+
+            return AlertDialog(
+              title: const Text('Edit profile'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: pickAvatar,
+                      customBorder: const CircleBorder(),
+                      child: CircleAvatar(
+                        radius: 44,
+                        backgroundColor: const Color(0xFFFFD7E4),
+                        backgroundImage: avatarBytes == null
+                            ? null
+                            : MemoryImage(Uint8List.fromList(avatarBytes!)),
+                        child: avatarBytes == null
+                            ? const Icon(
+                                Icons.add_a_photo_rounded,
+                                color: StudygramColors.primary,
+                                size: 34,
+                              )
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Display name',
+                        prefixIcon: Icon(Icons.person_outline_rounded),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: bioCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Bio',
+                        prefixIcon: Icon(Icons.notes_rounded),
+                      ),
+                      minLines: 2,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+      if (saved != true) return;
+
+      final name = nameCtrl.text.trim();
+      final bio = bioCtrl.text.trim();
+      if (name.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Display name is required.')),
+        );
+        return;
+      }
+
+      ref.read(studygramStoreProvider).updateCurrentUser(
+            name: name,
+            bio: bio,
+            avatarBytes: avatarBytes,
+          );
+      await _trySyncProfileToSupabase(name, bio, avatarBytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated.')),
+      );
+    } finally {
+      nameCtrl.dispose();
+      bioCtrl.dispose();
+    }
+  }
+
+  Future<void> _trySyncProfileToSupabase(
+    String name,
+    String bio,
+    List<int>? avatarBytes,
+  ) async {
+    final client = ref.read(supabaseClientProvider);
+    final user = client.auth.currentUser;
+    if (user == null) return;
+    String? avatarUrl;
+    if (avatarBytes != null) {
+      final objectPath =
+          '${user.id}/${DateTime.now().microsecondsSinceEpoch}.jpg';
+      await client.storage.from('avatars').uploadBinary(
+            objectPath,
+            Uint8List.fromList(avatarBytes),
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+      avatarUrl = client.storage.from('avatars').getPublicUrl(objectPath);
+    }
+    await client.auth.updateUser(
+      UserAttributes(
+        data: {
+          'full_name': name,
+          'avatar_url': avatarUrl,
+        }..removeWhere((_, value) => value == null),
+      ),
+    );
+    await client.from('profiles').upsert(
+      {
+        'id': user.id,
+        'username': name,
+        'bio': bio,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+      },
+      onConflict: 'id',
+    );
+  }
+
+  Future<void> _showSettings() {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Settings'),
+        content: const Text(
+          'Account settings are ready for the demo. Use Logout to switch accounts.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(supabaseClientProvider).auth.currentUser;
     final store = ref.watch(studygramStoreProvider);
-    final fullName = _displayName(user?.userMetadata, user?.email);
+    final editedProfile = store.currentUser;
+    final fullName = editedProfile.name == 'StudyGram Student'
+        ? _displayName(user?.userMetadata, user?.email)
+        : editedProfile.name;
+    final bio = editedProfile.bio;
     final myPosts = store.posts.where((post) => post.isMine).toList();
-    final visiblePosts = _tab == 0 ? myPosts : store.posts.take(2).toList();
+    final visiblePosts = _tab == 0 ? myPosts : store.savedPosts;
 
     return Scaffold(
       body: DecoratedBox(
@@ -44,8 +254,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       tooltip: 'Logout',
                       onPressed: () async {
                         await ref.read(authServiceProvider).signOut();
+                        if (context.mounted) context.go('/login');
                       },
-                      icon: const Icon(Icons.menu_rounded),
+                      icon: const Icon(Icons.logout_rounded),
                     ),
                   ],
                 ),
@@ -57,13 +268,62 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   padding: const EdgeInsets.all(22),
                   child: Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 54,
-                        backgroundColor: Color(0xFFFFD7E4),
-                        child: Icon(
-                          Icons.person_rounded,
-                          size: 62,
-                          color: StudygramColors.primary,
+                      InkWell(
+                        onTap: () => _changeProfilePicture(fullName, bio),
+                        customBorder: const CircleBorder(),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            CircleAvatar(
+                              radius: 54,
+                              backgroundColor: const Color(0xFFFFD7E4),
+                              backgroundImage: editedProfile.avatarBytes == null
+                                  ? null
+                                  : MemoryImage(
+                                      Uint8List.fromList(
+                                        editedProfile.avatarBytes!,
+                                      ),
+                                    ),
+                              child: editedProfile.avatarBytes == null
+                                  ? const Icon(
+                                      Icons.person_rounded,
+                                      size: 62,
+                                      color: StudygramColors.primary,
+                                    )
+                                  : null,
+                            ),
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: StudygramColors.primary,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.add_a_photo_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => _changeProfilePicture(fullName, bio),
+                        icon: const Icon(Icons.image_rounded),
+                        label: Text(
+                          editedProfile.avatarBytes == null
+                              ? 'Add profile picture'
+                              : 'Change profile picture',
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -75,20 +335,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
+                      const Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 8,
-                        children: const [
+                        children: [
                           _Badge(label: 'Student'),
                           _Badge(label: 'Note Sharer'),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Sharing clear reviewers and simple study notes for classmates.',
+                      Text(
+                        bio,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: StudygramColors.secondaryText,
+                          fontWeight: FontWeight.w600,
                           height: 1.4,
                         ),
                       ),
@@ -100,7 +361,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           const _Stat(label: 'Followers', value: '128'),
                           _Stat(
                             label: 'Saved',
-                            value: '${store.posts.fold<int>(0, (sum, p) => sum + p.savedCount)}',
+                            value: '${store.savedPosts.length}',
                           ),
                         ],
                       ),
@@ -109,7 +370,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         children: [
                           Expanded(
                             child: FilledButton(
-                              onPressed: () {},
+                              onPressed: () => _editProfile(fullName, bio),
                               style: FilledButton.styleFrom(
                                 backgroundColor: StudygramColors.primary,
                               ),
@@ -119,7 +380,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: () {},
+                              onPressed: _showSettings,
                               child: const Text('Settings'),
                             ),
                           ),
@@ -137,7 +398,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ButtonSegment(value: 1, label: Text('Saved')),
                   ],
                   selected: {_tab},
-                  onSelectionChanged: (value) => setState(() => _tab = value.first),
+                  onSelectionChanged: (value) =>
+                      setState(() => _tab = value.first),
                 ),
               ),
               const SizedBox(height: 16),
@@ -148,8 +410,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         decoration: softCardDecoration(),
                         padding: const EdgeInsets.all(20),
                         child: const Text(
-                          'No notes yet. Create your first study post from the home page.',
-                          style: TextStyle(color: StudygramColors.secondaryText),
+                          'No posts here yet.',
+                          style: TextStyle(
+                            color: StudygramColors.secondaryText,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       )
                     : Column(
@@ -213,19 +478,47 @@ class _Stat extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
         ),
-        Text(label, style: const TextStyle(color: StudygramColors.secondaryText)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: StudygramColors.secondaryText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _ProfilePostCard extends StatelessWidget {
+class _ProfilePostCard extends ConsumerWidget {
   const _ProfilePostCard({required this.post});
 
   final StudyPost post;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> confirmDelete() async {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete post?'),
+          content: const Text('This post and its comments will be removed.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      ref.read(studygramStoreProvider).deletePost(post.id);
+    }
+
     return InkWell(
       onTap: () => context.push('/comments/${post.id}'),
       borderRadius: BorderRadius.circular(30),
@@ -236,16 +529,34 @@ class _ProfilePostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StudyThumbnail(icon: post.thumbnailIcon, height: 150),
+            StudyMaterialPreview(
+              icon: post.thumbnailIcon,
+              materialName: post.materialName,
+              materialBytes: post.materialBytes,
+              materialType: post.materialType,
+              height: 150,
+            ),
             const SizedBox(height: 12),
-            Chip(
-              label: Text(post.subject),
-              backgroundColor: const Color(0xFFFFD7E4),
-              labelStyle: const TextStyle(
-                color: StudygramColors.darkPink,
-                fontWeight: FontWeight.w800,
-              ),
-              side: BorderSide.none,
+            Row(
+              children: [
+                Chip(
+                  label: Text(post.subject),
+                  backgroundColor: const Color(0xFFFFD7E4),
+                  labelStyle: const TextStyle(
+                    color: StudygramColors.darkPink,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  side: BorderSide.none,
+                ),
+                const Spacer(),
+                if (post.isMine)
+                  IconButton(
+                    onPressed: confirmDelete,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    color: StudygramColors.darkPink,
+                    tooltip: 'Delete post',
+                  ),
+              ],
             ),
             Text(
               post.title,
@@ -260,7 +571,10 @@ class _ProfilePostCard extends StatelessWidget {
               post.content,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: StudygramColors.secondaryText),
+              style: const TextStyle(
+                color: StudygramColors.secondaryText,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 10),
             Row(
